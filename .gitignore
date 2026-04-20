@@ -1,0 +1,16 @@
+# Dependencies installed locally (vendored copy in /vendor is committed)
+node_modules/
+package-lock.json
+
+# OS artefacts
+.DS_Store
+Thumbs.db
+
+# Editor / IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs
+*.log

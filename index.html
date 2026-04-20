@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>SQL Chess — Play Chess with SQL</title>
+  <meta name="description" content="Play chess while watching every move translated into SQL queries in real time. Guest mode, local multiplayer, and invite links included.">
+  <link rel="icon" type="image/svg+xml" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><text y='.9em' font-size='90'>♟</text></svg>">
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ─── APP SHELL ─────────────────────────────────────────────── -->
+<div id="app">
+
+  <!-- HEADER -->
+  <header class="app-header">
+    <div class="header-logo">
+      <span class="logo-icon">♟</span>
+      <span class="logo-text">SQL <span class="logo-accent">Chess</span></span>
+    </div>
+    <div class="header-controls">
+      <button type="button" id="btnToggleSQL" class="btn btn-outline" title="Toggle SQL panel">
+        <span id="sqlToggleIcon">◧</span> <span id="sqlToggleLabel">Hide SQL</span>
+      </button>
+      <button type="button" id="btnNewGame" class="btn btn-primary">⊕ New Game</button>
+      <button type="button" id="btnInvite" class="btn btn-secondary">⇗ Invite</button>
+    </div>
+  </header>
+
+  <!-- MAIN LAYOUT -->
+  <main class="app-main" id="appMain">
+
+    <!-- ── LEFT: CHESS PANEL ────────────────────────────────────── -->
+    <section class="chess-panel" id="chessPanel">
+
+      <!-- Black player bar -->
+      <div class="player-bar" id="blackBar">
+        <div class="player-avatar black-avatar">♚</div>
+        <div class="player-details">
+          <span class="player-name" id="blackPlayerName">Guest Black</span>
+          <span class="player-badge" id="blackBadge"></span>
+        </div>
+        <div class="captured-strip" id="whiteCapturedStrip" title="Pieces captured by Black"></div>
+      </div>
+
+      <!-- Board wrapper (holds labels + board) -->
+      <div class="board-wrapper" id="boardWrapper">
+        <div class="rank-labels" id="rankLabels"></div>
+        <div class="board-grid" id="board"></div>
+        <div class="file-labels" id="fileLabels"></div>
+      </div>
+
+      <!-- White player bar -->
+      <div class="player-bar" id="whiteBar">
+        <div class="player-avatar white-avatar">♔</div>
+        <div class="player-details">
+          <span class="player-name" id="whitePlayerName">Guest White</span>
+          <span class="player-badge" id="whiteBadge">Your turn</span>
+        </div>
+        <div class="captured-strip" id="blackCapturedStrip" title="Pieces captured by White"></div>
+      </div>
+
+      <!-- Controls row -->
+      <div class="game-controls">
+        <button type="button" id="btnUndo" class="btn btn-sm">↩ Undo</button>
+        <button type="button" id="btnFlip" class="btn btn-sm">⇅ Flip</button>
+        <span class="game-status-text" id="gameStatusText">White to move</span>
+      </div>
+
+      <!-- Move history -->
+      <div class="move-history-box">
+        <div class="move-history-header">Move History</div>
+        <div class="moves-list" id="movesList"></div>
+      </div>
+
+    </section>
+
+    <!-- ── RIGHT: SQL PANEL ─────────────────────────────────────── -->
+    <section class="sql-panel" id="sqlPanel">
+      <div class="sql-panel-header">
+        <h2 class="sql-title">
+          <span class="sql-icon">⬡</span> SQL Queries
+        </h2>
+        <div class="sql-actions">
+          <label class="autoscroll-label">
+            <input type="checkbox" id="chkAutoScroll" checked> Auto-scroll
+          </label>
+          <button type="button" id="btnClearSQL" class="btn btn-xs">Clear</button>
+          <button type="button" id="btnCopySQL" class="btn btn-xs">Copy All</button>
+        </div>
+      </div>
+      <div class="sql-content" id="sqlContent">
+        <div class="sql-placeholder" id="sqlPlaceholder">
+          <span class="placeholder-icon">⬡</span>
+          <p>SQL queries will appear here as you play.</p>
+          <p class="placeholder-hint">Each chess move is translated into<br>real SQL statements in real time.</p>
+        </div>
+      </div>
+    </section>
+
+  </main>
+</div>
+
+<!-- ─── MODAL: NEW GAME SETUP ──────────────────────────────────── -->
+<div class="modal-overlay" id="setupModalOverlay">
+  <div class="modal" id="setupModal">
+    <div class="modal-header">
+      <h2>New Game</h2>
+    </div>
+    <div class="modal-body">
+      <div class="form-row">
+        <label for="inputWhiteName">White Player</label>
+        <input type="text" id="inputWhiteName" placeholder="Guest White" maxlength="40">
+      </div>
+      <div class="form-row">
+        <label for="inputBlackName">Black Player</label>
+        <input type="text" id="inputBlackName" placeholder="Guest Black" maxlength="40">
+      </div>
+      <div class="form-row toggle-row">
+        <label for="chkShowSQL">Show SQL Panel</label>
+        <label class="switch">
+          <input type="checkbox" id="chkShowSQL" checked>
+          <span class="slider"></span>
+        </label>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button type="button" id="btnStartGame" class="btn btn-primary btn-wide">Start Game</button>
+      <button type="button" id="btnPlayAsGuest" class="btn btn-outline btn-wide">Play as Guest</button>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: INVITE ──────────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="inviteModalOverlay">
+  <div class="modal" id="inviteModal">
+    <div class="modal-header">
+      <h2>Invite a Player</h2>
+      <button type="button" class="modal-close-btn" id="btnCloseInvite" aria-label="Close">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="invite-info">Share this link to let someone join and continue this game:</p>
+      <div class="invite-url-row">
+        <input type="text" id="inviteUrlInput" readonly>
+        <button type="button" id="btnCopyInvite" class="btn btn-primary">Copy</button>
+      </div>
+      <div class="copy-feedback hidden" id="copyFeedback">✓ Copied to clipboard!</div>
+      <div class="invite-meta">
+        <span>Current turn: <strong id="inviteTurn">White</strong></span>
+        <span>Moves played: <strong id="inviteMoves">0</strong></span>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── MODAL: PROMOTION ───────────────────────────────────────── -->
+<div class="modal-overlay hidden" id="promotionOverlay">
+  <div class="modal modal-sm" id="promotionModal">
+    <div class="modal-header">
+      <h2>Promote Pawn</h2>
+    </div>
+    <div class="modal-body">
+      <p>Choose a piece for your pawn promotion:</p>
+      <div class="promotion-choices" id="promotionChoices"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── TOAST ──────────────────────────────────────────────────── -->
+<div class="toast hidden" id="toast"></div>
+
+<!-- chess.js (chess rules engine — vendored locally) -->
+<script src="vendor/chess.min.js"></script>
+<!-- App -->
+<script src="js/app.js"></script>
+</body>
+</html>
