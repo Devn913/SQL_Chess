@@ -766,7 +766,7 @@ input:checked + .slider::before { transform: translateX(18px); }
   transition: background .15s;
 }
 .sql-move-input:focus {
-  background: #0d1520;
+  background: var(--bg-base);
 }
 .sql-move-input::placeholder { color: var(--text-muted); }
 

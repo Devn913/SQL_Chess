@@ -42,6 +42,7 @@ const state = {
   pendingPromotion: null,   // { from, to } while waiting for user to pick
   capturedByWhite: [],      // pieces taken by white (black pieces lost)
   capturedByBlack: [],      // pieces taken by black (white pieces lost)
+  sqlInputHasTemplate: false, // true while the SQL textarea shows an auto-filled template
 };
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
@@ -238,6 +239,7 @@ function fillSQLInputTemplate(sqName, piece) {
     `SET    position = '???'\n` +
     `WHERE  position = '${sqName}'\n` +
     `  AND  color    = '${color}';`;
+  state.sqlInputHasTemplate = true;
   // Place cursor on the ??? so the user can immediately type the destination
   const idx = input.value.indexOf('???');
   input.focus();
@@ -420,8 +422,9 @@ function executeMove(from, to, promotion) {
 
   // Clear SQL input template after a successful board-click move
   const sqlMoveInput = document.getElementById('sqlMoveInput');
-  if (sqlMoveInput && sqlMoveInput.value.includes('???')) {
+  if (sqlMoveInput && state.sqlInputHasTemplate) {
     sqlMoveInput.value = '';
+    state.sqlInputHasTemplate = false;
     clearSQLRunError();
   }
 
@@ -787,6 +790,7 @@ function startGame(whiteName, blackName, showSQL, existingPGN) {
   state.capturedByWhite = [];
   state.capturedByBlack = [];
   state.pendingPromotion = null;
+  state.sqlInputHasTemplate = false;
 
   // Names in UI
   document.getElementById('whitePlayerName').textContent = state.whitePlayer;
@@ -1020,6 +1024,7 @@ function init() {
   document.getElementById('btnClearInput').addEventListener('click', () => {
     const input = document.getElementById('sqlMoveInput');
     if (input) input.value = '';
+    state.sqlInputHasTemplate = false;
     clearSQLRunError();
   });
   document.getElementById('sqlMoveInput').addEventListener('keydown', (e) => {
