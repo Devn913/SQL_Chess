@@ -16,6 +16,9 @@
 'use strict';
 
 /* ─── Configuration ──────────────────────────────────────────── */
+const SAMPLE_SQL_QUERY =
+  `-- Sample: move the e-pawn two squares forward\nUPDATE chess_piece\nSET    position = 'e4'\nWHERE  position = 'e2';`;
+
 const PIECE_UNICODE = {
   wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
   bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟',
@@ -66,6 +69,53 @@ function showToast(msg, duration = 2500) {
   el.classList.remove('hidden');
   clearTimeout(el._timer);
   el._timer = setTimeout(() => el.classList.add('hidden'), duration);
+}
+
+/* ─── Audio ───────────────────────────────────────────────────── */
+let _audioCtx = null;
+
+function getAudioCtx() {
+  if (!_audioCtx) {
+    _audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+  }
+  if (_audioCtx.state === 'suspended') { _audioCtx.resume(); }
+  return _audioCtx;
+}
+
+function playSound(type) {
+  try {
+    const ctx = getAudioCtx();
+    const o = ctx.createOscillator();
+    const g = ctx.createGain();
+    o.connect(g);
+    g.connect(ctx.destination);
+    if (type === 'capture') {
+      o.type = 'sawtooth';
+      o.frequency.setValueAtTime(520, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(180, ctx.currentTime + 0.18);
+      g.gain.setValueAtTime(0.35, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.18);
+      o.start(ctx.currentTime);
+      o.stop(ctx.currentTime + 0.18);
+    } else if (type === 'check') {
+      o.type = 'square';
+      o.frequency.setValueAtTime(880, ctx.currentTime);
+      o.frequency.setValueAtTime(660, ctx.currentTime + 0.08);
+      g.gain.setValueAtTime(0.2, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
+      o.start(ctx.currentTime);
+      o.stop(ctx.currentTime + 0.25);
+    } else {
+      // normal move
+      o.type = 'sine';
+      o.frequency.setValueAtTime(900, ctx.currentTime);
+      o.frequency.exponentialRampToValueAtTime(650, ctx.currentTime + 0.09);
+      g.gain.setValueAtTime(0.22, ctx.currentTime);
+      g.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.1);
+      o.start(ctx.currentTime);
+      o.stop(ctx.currentTime + 0.1);
+    }
+  } catch (e) { /* ignore — AudioContext may be unavailable */ }
 }
 
 /* ─── Board Rendering ─────────────────────────────────────────── */
@@ -420,6 +470,13 @@ function executeMove(from, to, promotion) {
   state.validMoves = [];
   state.moveCount++;
 
+  // Play move sound
+  if (moveResult.captured) {
+    playSound('capture');
+  } else {
+    playSound('move');
+  }
+
   // Clear SQL input template after a successful board-click move
   const sqlMoveInput = document.getElementById('sqlMoveInput');
   if (sqlMoveInput && state.sqlInputHasTemplate) {
@@ -438,6 +495,7 @@ function executeMove(from, to, promotion) {
       const endSQL = SQLGen.gameEnd(state.chess, state.gameId);
       appendSQL(endSQL, 'Game Over', null);
     } else if (state.chess.in_check()) {
+      playSound('check');
       const checkSQL = SQLGen.check(state.chess.turn(), state.gameId);
       appendSQL(checkSQL, '⚠ Check', null);
     }
@@ -732,7 +790,7 @@ function highlightSQL(code) {
     .replace(kwRegex, '<span class="sql-kw">$1</span>');
 }
 
-function appendSQL(code, label, moveNum) {
+function appendSQL(code, label, moveNum, atEnd) {
   const placeholder = document.getElementById('sqlPlaceholder');
   if (placeholder) placeholder.remove();
 
@@ -766,12 +824,25 @@ function appendSQL(code, label, moveNum) {
 
   block.appendChild(labelEl);
   block.appendChild(codeEl);
-  content.appendChild(block);
+
+  // New blocks slide in at the TOP so each submitted query moves content DOWN;
+  // only the initial game-setup block is appended at the end.
+  if (atEnd) {
+    content.appendChild(block);
+  } else {
+    content.prepend(block);
+  }
 
   state.sqlBlocks.push({ code, label, moveNum });
 
   if (document.getElementById('chkAutoScroll').checked) {
-    content.scrollTop = content.scrollHeight;
+    if (atEnd) {
+      // Game-init block appended at bottom — scroll down to show it
+      content.scrollTop = content.scrollHeight;
+    } else {
+      // Move blocks prepended at top — scroll up to reveal the new block
+      content.scrollTop = 0;
+    }
   }
 }
 
@@ -796,9 +867,12 @@ function startGame(whiteName, blackName, showSQL, existingPGN) {
   document.getElementById('whitePlayerName').textContent = state.whitePlayer;
   document.getElementById('blackPlayerName').textContent = state.blackPlayer;
 
-  // Clear SQL input
+  // Clear SQL input and pre-fill with sample query
   const sqlMoveInput = document.getElementById('sqlMoveInput');
-  if (sqlMoveInput) sqlMoveInput.value = '';
+  if (sqlMoveInput) {
+    sqlMoveInput.value = SAMPLE_SQL_QUERY;
+  }
+  state.sqlInputHasTemplate = true;
   clearSQLRunError();
 
   // SQL panel visibility
@@ -828,9 +902,9 @@ function startGame(whiteName, blackName, showSQL, existingPGN) {
       `<p class="placeholder-hint">Each chess move is translated into<br/>real SQL statements in real time.</p>`;
     sqlContent.appendChild(placeholder);
 
-    // Emit game-start SQL
+    // Emit game-start SQL (placed at the end so move SQL slides in above it)
     const initSQL = SQLGen.gameStart(state.gameId, state.whitePlayer, state.blackPlayer);
-    appendSQL(initSQL, 'Game Initialized', null);
+    appendSQL(initSQL, 'Game Initialized', null, true);
   }
 
   // Load from PGN if provided (invite link)
@@ -955,10 +1029,10 @@ function init() {
       if (undone.color === 'w') state.capturedByWhite.pop();
       else state.capturedByBlack.pop();
     }
-    // Remove last SQL block from UI
+    // Remove most-recent SQL block from UI (prepended = first child, no id)
     const content = document.getElementById('sqlContent');
-    if (content.lastChild && !content.lastChild.id) {
-      content.removeChild(content.lastChild);
+    if (content.firstChild && !content.firstChild.id) {
+      content.removeChild(content.firstChild);
       state.sqlBlocks.pop();
     }
     state.selectedSquare = null;
@@ -1021,6 +1095,14 @@ function init() {
 
   // SQL Move Input
   document.getElementById('btnRunSQL').addEventListener('click', runSQLMove);
+  document.getElementById('btnSampleSQL').addEventListener('click', () => {
+    const input = document.getElementById('sqlMoveInput');
+    if (input) {
+      input.value = SAMPLE_SQL_QUERY;
+    }
+    state.sqlInputHasTemplate = true;
+    clearSQLRunError();
+  });
   document.getElementById('btnClearInput').addEventListener('click', () => {
     const input = document.getElementById('sqlMoveInput');
     if (input) input.value = '';

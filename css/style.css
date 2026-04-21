@@ -10,6 +10,9 @@
   --bg-elevated:  #21262d;
   --bg-border:    #30363d;
 
+  /* Board size: at least 50 % of viewport width, capped at 760 px */
+  --board-sz: clamp(320px, 50vw, 760px);
+
   --text-primary:   #e6edf3;
   --text-secondary: #8b949e;
   --text-muted:     #484f58;
@@ -169,7 +172,7 @@ a      { color: var(--accent-blue); }
   align-items: center;
   gap: .6rem;
   width: 100%;
-  max-width: 480px;
+  max-width: var(--board-sz);
   padding: .4rem .6rem;
   background: var(--bg-surface);
   border: 1px solid var(--bg-border);
@@ -261,9 +264,8 @@ a      { color: var(--accent-blue); }
   border-radius: 3px;
   overflow: hidden;
   box-shadow: var(--shadow-lg);
-  /* Size is set dynamically in JS but default here */
-  width: min(57vw, 460px);
-  height: min(57vw, 460px);
+  width: var(--board-sz);
+  height: var(--board-sz);
 }
 
 /* Individual squares */
@@ -308,7 +310,7 @@ a      { color: var(--accent-blue); }
 
 /* Pieces */
 .piece {
-  font-size: calc(min(57vw, 460px) / 10);
+  font-size: calc(var(--board-sz) / 10);
   line-height: 1;
   pointer-events: none;
   display: flex;
@@ -327,7 +329,7 @@ a      { color: var(--accent-blue); }
   align-items: center;
   gap: .5rem;
   width: 100%;
-  max-width: 480px;
+  max-width: var(--board-sz);
 }
 
 .game-status-text {
@@ -340,7 +342,7 @@ a      { color: var(--accent-blue); }
 /* ── Move History ───────────────────────────────────────────── */
 .move-history-box {
   width: 100%;
-  max-width: 480px;
+  max-width: var(--board-sz);
   background: var(--bg-surface);
   border: 1px solid var(--bg-border);
   border-radius: var(--radius);
@@ -472,7 +474,7 @@ a      { color: var(--accent-blue); }
   animation: fadeSlideIn .2s ease;
 }
 @keyframes fadeSlideIn {
-  from { opacity: 0; transform: translateY(6px); }
+  from { opacity: 0; transform: translateY(-8px); }
   to   { opacity: 1; transform: translateY(0); }
 }
 
@@ -837,14 +839,7 @@ input:checked + .slider::before { transform: translateX(18px); }
     border-top: none;
   }
 
-  .board-grid {
-    width: min(90vw, 420px);
-    height: min(90vw, 420px);
-  }
-
-  .piece {
-    font-size: calc(min(90vw, 420px) / 10);
-  }
+  :root { --board-sz: min(90vw, 420px); }
 }
 
 @media (max-width: 480px) {
@@ -853,11 +848,7 @@ input:checked + .slider::before { transform: translateX(18px); }
   .chess-panel { padding: .5rem; }
   .header-controls { gap: .3rem; }
 
-  .board-grid {
-    width: min(92vw, 360px);
-    height: min(92vw, 360px);
-  }
-  .piece { font-size: calc(min(92vw, 360px) / 10); }
+  :root { --board-sz: min(92vw, 360px); }
 
   #btnToggleSQL #sqlToggleLabel { display: none; }
 }
