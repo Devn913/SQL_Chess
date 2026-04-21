@@ -10,8 +10,10 @@
   --bg-elevated:  #21262d;
   --bg-border:    #30363d;
 
-  /* Board size: at least 50 % of viewport width, capped at 760 px */
-  --board-sz: clamp(320px, 50vw, 760px);
+  --chess-panel-padding: 4rem; /* total horizontal padding within chess panel (2 × 1rem + margins) */
+
+  /* Board size: fills the 70 % chess panel minus padding, capped at 760 px */
+  --board-sz: clamp(320px, calc(70vw - var(--chess-panel-padding) * 2), 760px);
 
   --text-primary:   #e6edf3;
   --text-secondary: #8b949e;
@@ -161,9 +163,19 @@ a      { color: var(--accent-blue); }
   align-items: center;
   padding: 1rem;
   gap: .6rem;
-  flex-shrink: 0;
+  flex: 0 0 70%;
+  width: 70%;
   min-width: 0;
   overflow-y: auto;
+  justify-content: center;
+}
+
+/* When SQL panel is hidden, chess panel fills the available space */
+/* .sql-hidden is set by JS as a fallback for browsers without :has() support */
+.chess-panel.sql-hidden,
+.chess-panel:has(~ .sql-panel.hidden-panel) {
+  flex: 1;
+  width: 100%;
 }
 
 /* Player bars */
@@ -389,7 +401,8 @@ a      { color: var(--accent-blue); }
 
 /* ── SQL Panel ──────────────────────────────────────────────── */
 .sql-panel {
-  flex: 1;
+  flex: 0 0 25%;
+  width: 25%;
   display: flex;
   flex-direction: column;
   border-left: 1px solid var(--bg-border);
@@ -399,7 +412,7 @@ a      { color: var(--accent-blue); }
   transition: width .25s ease, flex .25s ease, opacity .2s;
 }
 .sql-panel.hidden-panel {
-  flex: 0;
+  flex: 0 0 0;
   width: 0;
   opacity: 0;
   pointer-events: none;
@@ -829,7 +842,15 @@ input:checked + .slider::before { transform: translateX(18px); }
 @media (max-width: 900px) {
   .app-main { flex-direction: column; }
 
+  .chess-panel {
+    flex: none;
+    width: 100%;
+    justify-content: flex-start;
+  }
+
   .sql-panel {
+    flex: none;
+    width: 100%;
     border-left: none;
     border-top: 1px solid var(--bg-border);
     max-height: 40vh;

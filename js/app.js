@@ -292,7 +292,7 @@ function fillSQLInputTemplate(sqName, piece) {
   state.sqlInputHasTemplate = true;
   // Place cursor on the ??? so the user can immediately type the destination
   const idx = input.value.indexOf('???');
-  input.focus();
+  input.focus({ preventScroll: true });
   input.setSelectionRange(idx, idx + 3);
   clearSQLRunError();
 }
@@ -876,15 +876,18 @@ function startGame(whiteName, blackName, showSQL, existingPGN) {
   clearSQLRunError();
 
   // SQL panel visibility
-  const sqlPanel = document.getElementById('sqlPanel');
-  const lblEl    = document.getElementById('sqlToggleLabel');
-  const iconEl   = document.getElementById('sqlToggleIcon');
+  const sqlPanel   = document.getElementById('sqlPanel');
+  const chessPanel = document.getElementById('chessPanel');
+  const lblEl      = document.getElementById('sqlToggleLabel');
+  const iconEl     = document.getElementById('sqlToggleIcon');
   if (state.showSQL) {
     sqlPanel.classList.remove('hidden-panel');
+    chessPanel.classList.remove('sql-hidden');
     lblEl.textContent  = 'Hide SQL';
     iconEl.textContent = '◧';
   } else {
     sqlPanel.classList.add('hidden-panel');
+    chessPanel.classList.add('sql-hidden');
     lblEl.textContent  = 'Show SQL';
     iconEl.textContent = '□';
   }
@@ -1003,15 +1006,18 @@ function init() {
   // Toggle SQL Panel
   document.getElementById('btnToggleSQL').addEventListener('click', () => {
     state.showSQL = !state.showSQL;
-    const sqlPanel = document.getElementById('sqlPanel');
-    const lblEl    = document.getElementById('sqlToggleLabel');
-    const iconEl   = document.getElementById('sqlToggleIcon');
+    const sqlPanel   = document.getElementById('sqlPanel');
+    const chessPanel = document.getElementById('chessPanel');
+    const lblEl      = document.getElementById('sqlToggleLabel');
+    const iconEl     = document.getElementById('sqlToggleIcon');
     if (state.showSQL) {
       sqlPanel.classList.remove('hidden-panel');
+      chessPanel.classList.remove('sql-hidden');
       lblEl.textContent  = 'Hide SQL';
       iconEl.textContent = '◧';
     } else {
       sqlPanel.classList.add('hidden-panel');
+      chessPanel.classList.add('sql-hidden');
       lblEl.textContent  = 'Show SQL';
       iconEl.textContent = '□';
     }
