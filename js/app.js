@@ -16,6 +16,9 @@
 'use strict';
 
 /* ─── Configuration ──────────────────────────────────────────── */
+const SAMPLE_SQL_QUERY =
+  `-- Sample: move the e-pawn two squares forward\nUPDATE chess_piece\nSET    position = 'e4'\nWHERE  position = 'e2';`;
+
 const PIECE_UNICODE = {
   wK: '♔', wQ: '♕', wR: '♖', wB: '♗', wN: '♘', wP: '♙',
   bK: '♚', bQ: '♛', bR: '♜', bB: '♝', bN: '♞', bP: '♟',
@@ -833,8 +836,11 @@ function appendSQL(code, label, moveNum, atEnd) {
   state.sqlBlocks.push({ code, label, moveNum });
 
   if (document.getElementById('chkAutoScroll').checked) {
-    // Scroll to top to reveal the freshly-prepended block
-    if (!atEnd) {
+    if (atEnd) {
+      // Game-init block appended at bottom — scroll down to show it
+      content.scrollTop = content.scrollHeight;
+    } else {
+      // Move blocks prepended at top — scroll up to reveal the new block
       content.scrollTop = 0;
     }
   }
@@ -864,10 +870,9 @@ function startGame(whiteName, blackName, showSQL, existingPGN) {
   // Clear SQL input and pre-fill with sample query
   const sqlMoveInput = document.getElementById('sqlMoveInput');
   if (sqlMoveInput) {
-    sqlMoveInput.value =
-      `-- Sample: move the e-pawn two squares forward\nUPDATE chess_piece\nSET    position = 'e4'\nWHERE  position = 'e2';`;
+    sqlMoveInput.value = SAMPLE_SQL_QUERY;
   }
-  state.sqlInputHasTemplate = false;
+  state.sqlInputHasTemplate = true;
   clearSQLRunError();
 
   // SQL panel visibility
@@ -1093,10 +1098,9 @@ function init() {
   document.getElementById('btnSampleSQL').addEventListener('click', () => {
     const input = document.getElementById('sqlMoveInput');
     if (input) {
-      input.value =
-        `-- Sample: move the e-pawn two squares forward\nUPDATE chess_piece\nSET    position = 'e4'\nWHERE  position = 'e2';`;
+      input.value = SAMPLE_SQL_QUERY;
     }
-    state.sqlInputHasTemplate = false;
+    state.sqlInputHasTemplate = true;
     clearSQLRunError();
   });
   document.getElementById('btnClearInput').addEventListener('click', () => {
