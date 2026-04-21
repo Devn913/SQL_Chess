@@ -1,5 +1,12 @@
 {
   "dependencies": {
     "chess.js": "^0.10.3"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.59.1"
+  },
+  "scripts": {
+    "test": "playwright test",
+    "test:report": "playwright show-report"
   }
 }
