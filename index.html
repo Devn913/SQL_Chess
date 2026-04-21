@@ -97,6 +97,25 @@
           <p class="placeholder-hint">Each chess move is translated into<br>real SQL statements in real time.</p>
         </div>
       </div>
+
+      <!-- ── SQL Move Input ──────────────────────────────────── -->
+      <div class="sql-input-section" id="sqlInputSection">
+        <div class="sql-input-bar">
+          <span class="sql-input-title">▶ Execute SQL Move</span>
+          <span class="sql-input-hint" title="Press Ctrl+Enter to run">Ctrl ↵ to run</span>
+        </div>
+        <textarea
+          id="sqlMoveInput"
+          class="sql-move-input"
+          spellcheck="false"
+          rows="4"
+          placeholder="UPDATE chess_piece&#10;SET    position = 'e4'&#10;WHERE  position = 'e2';&#10;&#10;-- or shorthand:  e2 e4"></textarea>
+        <div class="sql-input-actions">
+          <span class="sql-run-error hidden" id="sqlRunError"></span>
+          <button type="button" id="btnClearInput" class="btn btn-xs">Clear</button>
+          <button type="button" id="btnRunSQL" class="btn btn-primary btn-sm">▶ Run</button>
+        </div>
+      </div>
     </section>
 
   </main>

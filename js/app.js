@@ -42,6 +42,7 @@ const state = {
   pendingPromotion: null,   // { from, to } while waiting for user to pick
   capturedByWhite: [],      // pieces taken by white (black pieces lost)
   capturedByBlack: [],      // pieces taken by black (white pieces lost)
+  sqlInputHasTemplate: false, // true while the SQL textarea shows an auto-filled template
 };
 
 /* ─── Helpers ─────────────────────────────────────────────────── */
@@ -170,6 +171,8 @@ function updatePlayerBars() {
   document.getElementById('blackBadge').textContent = turn === 'b' ? 'Your turn' : '';
   document.getElementById('whiteBar').style.opacity = turn === 'w' ? '1' : '.65';
   document.getElementById('blackBar').style.opacity = turn === 'b' ? '1' : '.65';
+  document.getElementById('whiteBar').classList.toggle('active-turn', turn === 'w');
+  document.getElementById('blackBar').classList.toggle('active-turn', turn === 'b');
 }
 
 function updateStatus() {
@@ -222,6 +225,123 @@ function renderAll() {
   buildMoveHistory();
 }
 
+/* ─── SQL Move Input ──────────────────────────────────────────── */
+
+/**
+ * Populate the SQL input textarea with a move template for the selected piece.
+ */
+function fillSQLInputTemplate(sqName, piece) {
+  const input = document.getElementById('sqlMoveInput');
+  if (!input) return;
+  const color = piece.color === 'w' ? 'white' : 'black';
+  input.value =
+    `UPDATE chess_piece\n` +
+    `SET    position = '???'\n` +
+    `WHERE  position = '${sqName}'\n` +
+    `  AND  color    = '${color}';`;
+  state.sqlInputHasTemplate = true;
+  // Place cursor on the ??? so the user can immediately type the destination
+  const idx = input.value.indexOf('???');
+  input.focus();
+  input.setSelectionRange(idx, idx + 3);
+  clearSQLRunError();
+}
+
+/**
+ * Parse a SQL string and extract { from, to } squares.
+ * Accepted formats:
+ *   1. UPDATE chess_piece SET position = 'e4' WHERE ... position = 'e2' ...
+ *   2. Shorthand:  e2 e4  /  e2-e4  /  e2 to e4
+ */
+function parseSQLMove(query) {
+  const q = query.trim();
+
+  // Shorthand: "e2 e4", "e2-e4", "e2 to e4", "e2e4"
+  const shorthand = q.match(/^([a-h][1-8])\s*(?:-|to)?\s*([a-h][1-8])$/i);
+  if (shorthand) {
+    const from = shorthand[1].toLowerCase();
+    const to   = shorthand[2].toLowerCase();
+    if (from === to) return null;
+    return { from, to };
+  }
+
+  // Standard UPDATE … SET position = 'to' … WHERE … position = 'from'
+  const setMatch = q.match(/SET\s+position\s*=\s*'([a-h][1-8])'/i);
+  if (!setMatch) return null;
+  const to = setMatch[1].toLowerCase();
+
+  const whereIdx = q.search(/WHERE/i);
+  if (whereIdx === -1) return null;
+  const whereClause = q.slice(whereIdx);
+  const fromMatch = whereClause.match(/position\s*=\s*'([a-h][1-8])'/i);
+  if (!fromMatch) return null;
+  const from = fromMatch[1].toLowerCase();
+
+  if (from === to) return null;
+  return { from, to };
+}
+
+function showSQLRunError(msg) {
+  const el = document.getElementById('sqlRunError');
+  if (!el) return;
+  el.textContent = msg;
+  el.classList.remove('hidden');
+}
+
+function clearSQLRunError() {
+  const el = document.getElementById('sqlRunError');
+  if (el) { el.textContent = ''; el.classList.add('hidden'); }
+}
+
+function runSQLMove() {
+  if (!state.chess) { showSQLRunError('No game in progress.'); return; }
+  if (state.chess.game_over()) { showSQLRunError('Game is over.'); return; }
+  if (state.pendingPromotion) { showSQLRunError('Finish pawn promotion first.'); return; }
+
+  const input = document.getElementById('sqlMoveInput');
+  const query = input ? input.value : '';
+  if (!query.trim()) { showSQLRunError('Enter a SQL statement to move a piece.'); return; }
+
+  const parsed = parseSQLMove(query);
+  if (!parsed) {
+    showSQLRunError('Could not parse move. Use: UPDATE chess_piece SET position = \'e4\' WHERE position = \'e2\';');
+    return;
+  }
+
+  const { from, to } = parsed;
+
+  // Validate that there's a piece at `from` belonging to the current player
+  const piece = state.chess.get(from);
+  if (!piece) { showSQLRunError(`No piece found at ${from}.`); return; }
+  if (piece.color !== state.chess.turn()) {
+    showSQLRunError(`It is ${state.chess.turn() === 'w' ? 'White' : 'Black'}'s turn.`);
+    return;
+  }
+
+  // Check if it's a promotion
+  const validMoves = state.chess.moves({ square: from, verbose: true });
+  const moveObj = validMoves.find(m => m.to === to);
+  if (!moveObj) {
+    showSQLRunError(`Move ${from}→${to} is not legal.`);
+    return;
+  }
+
+  clearSQLRunError();
+  if (input) input.value = '';
+
+  // Reset board selection
+  state.selectedSquare = null;
+  state.validMoves = [];
+
+  if (moveObj.flags.includes('p')) {
+    state.pendingPromotion = { from, to };
+    openPromotionDialog(state.chess.turn());
+    return;
+  }
+
+  executeMove(from, to, null);
+}
+
 /* ─── Square Click Logic ──────────────────────────────────────── */
 function onSquareClick(sqName) {
   // Ignore clicks if game over or awaiting promotion
@@ -237,6 +357,8 @@ function onSquareClick(sqName) {
     state.selectedSquare = sqName;
     state.validMoves = state.chess.moves({ square: sqName, verbose: true });
     renderPieces();
+    // Auto-fill SQL input with template
+    fillSQLInputTemplate(sqName, piece);
     return;
   }
 
@@ -297,6 +419,14 @@ function executeMove(from, to, promotion) {
   state.selectedSquare = null;
   state.validMoves = [];
   state.moveCount++;
+
+  // Clear SQL input template after a successful board-click move
+  const sqlMoveInput = document.getElementById('sqlMoveInput');
+  if (sqlMoveInput && state.sqlInputHasTemplate) {
+    sqlMoveInput.value = '';
+    state.sqlInputHasTemplate = false;
+    clearSQLRunError();
+  }
 
   // Generate SQL
   if (state.showSQL) {
@@ -621,6 +751,15 @@ function appendSQL(code, label, moveNum) {
   }
   labelEl.append(' ' + label);
 
+  // Per-block copy button
+  const copyBtn = document.createElement('button');
+  copyBtn.type = 'button';
+  copyBtn.className = 'sql-copy-btn';
+  copyBtn.textContent = '⎘ Copy';
+  copyBtn.title = 'Copy this SQL block';
+  copyBtn.addEventListener('click', () => copyToClipboard(code, 'SQL copied!'));
+  labelEl.appendChild(copyBtn);
+
   const codeEl = document.createElement('div');
   codeEl.className = 'sql-code';
   codeEl.innerHTML = highlightSQL(code);
@@ -651,10 +790,16 @@ function startGame(whiteName, blackName, showSQL, existingPGN) {
   state.capturedByWhite = [];
   state.capturedByBlack = [];
   state.pendingPromotion = null;
+  state.sqlInputHasTemplate = false;
 
   // Names in UI
   document.getElementById('whitePlayerName').textContent = state.whitePlayer;
   document.getElementById('blackPlayerName').textContent = state.blackPlayer;
+
+  // Clear SQL input
+  const sqlMoveInput = document.getElementById('sqlMoveInput');
+  if (sqlMoveInput) sqlMoveInput.value = '';
+  clearSQLRunError();
 
   // SQL panel visibility
   const sqlPanel = document.getElementById('sqlPanel');
@@ -873,6 +1018,21 @@ function init() {
   });
 
   // Close invite on overlay click already wired above
+
+  // SQL Move Input
+  document.getElementById('btnRunSQL').addEventListener('click', runSQLMove);
+  document.getElementById('btnClearInput').addEventListener('click', () => {
+    const input = document.getElementById('sqlMoveInput');
+    if (input) input.value = '';
+    state.sqlInputHasTemplate = false;
+    clearSQLRunError();
+  });
+  document.getElementById('sqlMoveInput').addEventListener('keydown', (e) => {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+      e.preventDefault();
+      runSQLMove();
+    }
+  });
 }
 
 function copyToClipboard(text, toastMsg) {
